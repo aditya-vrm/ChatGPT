@@ -2,13 +2,15 @@ require("dotenv").config();
 const express=require('express');
 const app=require('./src/app');
 const connectDB=require('./src/db/db');
+const initSocketServer=require('./src/sockets/socket.server');
+const httpserver=require('http').createServer(app);
 
 
 connectDB();
 
 
-app.use(express());
+initSocketServer(httpserver);
 
-app.listen(3000,()=>{
+httpserver.listen(3000,()=>{
     console.log('Your Server is Running in 3000');
 })
