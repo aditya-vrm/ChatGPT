@@ -47,18 +47,18 @@ const user=await userModel.findOne({
     email
 })
  if(!user){
-    res.status(401).json({message:"User not Found"});
+    return res.status(401).json({message:"User not Found"});
  }
 
  const isPasswordValid=await bcrypt.compare(password,user.password);
 
  if(!isPasswordValid){
-    res.status(401).json({message:"Invalid Password"})
+    return res.status(401).json({message:"Invalid Password"})
  }
 
  const token=jwt.sign({id:user._id},process.env.JWT_SECRET);
 
-res.cookie(token);
+res.cookie("token", token);
 
  res.status(201).json({
     message:"User Logged in Succesfully",

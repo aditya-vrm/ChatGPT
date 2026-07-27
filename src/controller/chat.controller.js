@@ -3,20 +3,20 @@ const chatModel=require('../models/chat.model');
 async function createChat(req,res){
     
     const title=req.body;
-    const users=req.body.users;
+    const user=req.user;
 
     const chat=new chatModel({
-        users:users._id,
-        title:title
+        user:user._id,
+        title
     });
 
     res.status(201).json({
         message:"Chat Created Successfully",
         chat:{
-            id:chat._id,
+            _id:chat._id,
             title:chat.title,
             lastActivity:chat.lastActivity,
-            users:chat.users
+            user:chat.user
         }
     });
 
