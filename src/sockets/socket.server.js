@@ -46,7 +46,10 @@ function initSocketServer(httpserver) {
       const memory=await queryMemory({
         queryVector:vectors,
         limit: 3,
-        metadata: {},
+        metadata: {
+          user: socket.user._id,
+          chat: messagepayload.chat,
+        },
       });
 
       await createMemory({
@@ -64,12 +67,26 @@ function initSocketServer(httpserver) {
         chat: messagepayload.chat,
       }).sort({ createdAt: -1 }).limit(20).lean();
 
-      const response = await aiService.generateResponse(chatHistory.map(item=>{
+      const stm=chatHistory.map(item=>{
         return{
           role: item.role,
           parts: [{ text: item.content }]
         }
-      }));
+      })
+
+      const ltm=[
+        {
+          role: "system",
+          parts: [{ text: `
+            
+            These are the some previous messages from the chat , use them to answer the Response.
+
+            ${memory.map(item=>item.metadata.text).join("\n")}
+            `}]
+        }
+      ]
+
+      const response = await aiService.generateResponse([...ltm,...stm]);
 
       const responseMessage = await messageModel.create({
         chat: messagepayload.chat,
