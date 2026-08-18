@@ -20,8 +20,15 @@ const Home = () => {
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
 
-  // Initialize socket on mount
+  // localStorage dynamic keys helpers scoped to the logged-in user
+  const getChatsKey = () => `chatgpt_clone_chats_${user?.id || 'default'}`;
+  const getMessagesKey = (chatId) => `chat_messages_${user?.id || 'default'}_${chatId}`;
+  const getLastActiveKey = () => `last_active_chat_id_${user?.id || 'default'}`;
+
+  // Initialize socket on mount (dependent on user)
   useEffect(() => {
+    if (!user) return;
+
     // Connect to the socket server (port 3000)
     // withCredentials ensures cookies (JWT token) are transmitted for authentication
     const newSocket = io('http://localhost:3000', {
@@ -61,8 +68,8 @@ const Home = () => {
         // Append to state
         setMessages((prev) => {
           const updated = [...prev, newMsg];
-          // Save messages in localStorage
-          localStorage.setItem(`chat_messages_${payload.chat}`, JSON.stringify(updated));
+          // Save messages in localStorage scoped to the user
+          localStorage.setItem(getMessagesKey(payload.chat), JSON.stringify(updated));
           return updated;
         });
       }
@@ -70,53 +77,39 @@ const Home = () => {
 
     setSocket(newSocket);
 
-    // Load chat list from localStorage
-    const savedChats = localStorage.getItem('chatgpt_clone_chats');
+    return () => {
+      newSocket.disconnect();
+    };
+  }, [user]);
+
+  // Load chat list from localStorage (dependent on user)
+  useEffect(() => {
+    if (!user) return;
+
+    const savedChats = localStorage.getItem(getChatsKey());
     if (savedChats) {
       const parsed = JSON.parse(savedChats);
       setChats(parsed);
       if (parsed.length > 0) {
         // Find if there's a last active chat
-        const lastActiveId = localStorage.getItem('last_active_chat_id');
+        const lastActiveId = localStorage.getItem(getLastActiveKey());
         const lastChat = parsed.find(c => c._id === lastActiveId) || parsed[0];
         setActiveChat(lastChat);
+      } else {
+        setActiveChat(null);
       }
     } else {
-      // Seed default interactive chats on first load
-      const seedChats = [
-        { _id: 'seed_1', title: 'Python Web Scraper', lastActivity: new Date().toISOString() },
-        { _id: 'seed_2', title: 'UI Design Suggestions', lastActivity: new Date().toISOString() },
-        { _id: 'seed_3', title: 'Quantum Physics Intro', lastActivity: new Date().toISOString() }
-      ];
-      setChats(seedChats);
-      localStorage.setItem('chatgpt_clone_chats', JSON.stringify(seedChats));
-      setActiveChat(seedChats[0]);
-
-      // Seed message logs for these chats
-      localStorage.setItem('chat_messages_seed_1', JSON.stringify([
-        { _id: 'm1', role: 'user', content: 'How do I write a web scraper in Python?' },
-        { _id: 'm2', role: 'model', content: 'You can use BeautifulSoup or Playwright. Here is a basic example using requests and BeautifulSoup:\n\n```python\nimport requests\nfrom bs4 import BeautifulSoup\n\nurl = "https://example.com"\nr = requests.get(url)\nsoup = BeautifulSoup(r.text, "html.parser")\nprint(soup.title.text)\n```' }
-      ]));
-      localStorage.setItem('chat_messages_seed_2', JSON.stringify([
-        { _id: 'm3', role: 'user', content: 'What colors work best for an AMOLED dark mode?' },
-        { _id: 'm4', role: 'model', content: 'For AMOLED dark mode, use pure black (#000000) for the main canvas, and very dark gray (#0d0d0d or #121212) for surfaces, cards, and input fields. Accents should be high contrast like emerald green (#10a37f) or electric blue to give a premium neon look.' }
-      ]));
-      localStorage.setItem('chat_messages_seed_3', JSON.stringify([
-        { _id: 'm5', role: 'user', content: 'Explain quantum entanglement simply.' },
-        { _id: 'm6', role: 'model', content: 'Imagine you have a pair of magical shoes. If you place one shoe in London and the other in New York, the moment you look at the London shoe and see it is a "left" shoe, you instantly know the New York shoe is a "right" shoe, no matter the distance. In quantum entanglement, particles become connected so that the state of one instantly dictates the state of the other.' }
-      ]));
+      setChats([]);
+      setActiveChat(null);
     }
-
-    return () => {
-      newSocket.disconnect();
-    };
-  }, []);
+  }, [user]);
 
   // Update messages when active chat changes
   useEffect(() => {
+    if (!user) return;
     if (activeChat) {
-      localStorage.setItem('last_active_chat_id', activeChat._id);
-      const savedMessages = localStorage.getItem(`chat_messages_${activeChat._id}`);
+      localStorage.setItem(getLastActiveKey(), activeChat._id);
+      const savedMessages = localStorage.getItem(getMessagesKey(activeChat._id));
       if (savedMessages) {
         setMessages(JSON.parse(savedMessages));
       } else {
@@ -129,7 +122,7 @@ const Home = () => {
     if (textareaRef.current) {
       textareaRef.current.focus();
     }
-  }, [activeChat]);
+  }, [activeChat, user]);
 
   // Scroll to bottom whenever messages list updates
   useEffect(() => {
@@ -144,24 +137,30 @@ const Home = () => {
     }
   }, [input]);
 
-  const handleCreateChat = async (initialTitle = 'New Chat') => {
+  const handleCreateChat = async (initialTitle = '') => {
+    const chatNumber = chats.length + 1;
+    const finalTitle = (initialTitle && initialTitle !== 'New Chat') ? initialTitle : `Chat ${chatNumber}`;
     try {
       // 1. Post request to backend /api/chat to register the chat structure
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: initialTitle })
+        body: JSON.stringify({ title: finalTitle })
       });
       const data = await res.json();
       
       let newChatObj;
       if (res.ok && data.chat) {
-        newChatObj = data.chat;
+        newChatObj = { ...data.chat };
+        // Safeguard: If the backend title is empty, undefined, or is returned as an object/blank string
+        if (!newChatObj.title || typeof newChatObj.title === 'object' || newChatObj.title === '[object Object]') {
+          newChatObj.title = finalTitle;
+        }
       } else {
         // Fallback in case of backend issues
         newChatObj = {
           _id: 'local_' + Date.now(),
-          title: initialTitle,
+          title: finalTitle,
           lastActivity: new Date().toISOString()
         };
       }
@@ -169,7 +168,7 @@ const Home = () => {
       // Update state
       const updatedChats = [newChatObj, ...chats];
       setChats(updatedChats);
-      localStorage.setItem('chatgpt_clone_chats', JSON.stringify(updatedChats));
+      localStorage.setItem(getChatsKey(), JSON.stringify(updatedChats));
       setActiveChat(newChatObj);
       setMessages([]);
       
@@ -179,12 +178,12 @@ const Home = () => {
       // Fallback
       const fallbackChat = {
         _id: 'local_' + Date.now(),
-        title: initialTitle,
+        title: finalTitle,
         lastActivity: new Date().toISOString()
       };
       const updatedChats = [fallbackChat, ...chats];
       setChats(updatedChats);
-      localStorage.setItem('chatgpt_clone_chats', JSON.stringify(updatedChats));
+      localStorage.setItem(getChatsKey(), JSON.stringify(updatedChats));
       setActiveChat(fallbackChat);
       setMessages([]);
       return fallbackChat;
@@ -195,15 +194,15 @@ const Home = () => {
     e.stopPropagation();
     const updatedChats = chats.filter(c => c._id !== chatId);
     setChats(updatedChats);
-    localStorage.setItem('chatgpt_clone_chats', JSON.stringify(updatedChats));
-    localStorage.removeItem(`chat_messages_${chatId}`);
+    localStorage.setItem(getChatsKey(), JSON.stringify(updatedChats));
+    localStorage.removeItem(getMessagesKey(chatId));
     
     if (activeChat?._id === chatId) {
       if (updatedChats.length > 0) {
         setActiveChat(updatedChats[0]);
       } else {
         setActiveChat(null);
-        localStorage.removeItem('last_active_chat_id');
+        localStorage.removeItem(getLastActiveKey());
       }
     }
   };
@@ -229,7 +228,7 @@ const Home = () => {
 
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
-    localStorage.setItem(`chat_messages_${currentChat._id}`, JSON.stringify(updatedMessages));
+    localStorage.setItem(getMessagesKey(currentChat._id), JSON.stringify(updatedMessages));
     
     const messageContent = input;
     setInput('');
@@ -253,7 +252,7 @@ const Home = () => {
         };
         const endMessages = [...updatedMessages, errorMsg];
         setMessages(endMessages);
-        localStorage.setItem(`chat_messages_${currentChat._id}`, JSON.stringify(endMessages));
+        localStorage.setItem(getMessagesKey(currentChat._id), JSON.stringify(endMessages));
       }, 1500);
     }
   };
@@ -269,14 +268,13 @@ const Home = () => {
     if (!activeChat) return;
     if (window.confirm("Are you sure you want to clear all messages in this thread?")) {
       setMessages([]);
-      localStorage.removeItem(`chat_messages_${activeChat._id}`);
+      localStorage.removeItem(getMessagesKey(activeChat._id));
     }
   };
 
-
   // Helper for generating initials
   const getUserInitials = () => {
-    if (!user) return 'AC';
+    if (!user) return 'UI';
     const first = user.fullname?.firstname?.charAt(0) || '';
     const last = user.fullname?.lastname?.charAt(0) || '';
     return (first + last).toUpperCase() || user.email.charAt(0).toUpperCase();
@@ -307,7 +305,7 @@ const Home = () => {
           </button>
         </div>
 
-        <button className="new-chat-btn" onClick={() => handleCreateChat('New Chat')}>
+        <button className="new-chat-btn" onClick={() => handleCreateChat()}>
           <Plus size={18} />
           <span>New Chat</span>
         </button>
@@ -410,7 +408,6 @@ const Home = () => {
                 <h1 className="gradient-text">Hello, {user?.fullname?.firstname || 'Friend'}</h1>
                 <p>Welcome to ChatGPT Clone. What shall we solve today?</p>
               </div>
-
 
               {socketStatus === 'disconnected' && (
                 <div className="warning-panel glass-panel">
