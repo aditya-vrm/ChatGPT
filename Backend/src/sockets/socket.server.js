@@ -19,8 +19,6 @@ function initSocketServer(httpserver) {
 
       const user = await userModel.findById(decoded.id);
 
-      console.log("User Found:", user);
-
       socket.user = user;
       next();
     } catch (err) {
