@@ -10,6 +10,9 @@ async function generateResponse(content) {
 
     model:"gemini-2.5-flash",
     contents:content,
+    config:{
+        temperature:0.2,
+    }
 })
 return response.text;
 }
