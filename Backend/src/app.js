@@ -36,8 +36,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api/auth',AuthRoutes);
 app.use('/api/chat',ChatRoutes);
 
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+app.get("*name", (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
 
