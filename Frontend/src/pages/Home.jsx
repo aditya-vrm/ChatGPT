@@ -31,10 +31,7 @@ const Home = () => {
 
     // Connect to the socket server (port 3000)
     // withCredentials ensures cookies (JWT token) are transmitted for authentication
-    const newSocket = io('http://localhost:3000', {
-      withCredentials: true,
-      transports: ['websocket', 'polling']
-    });
+    const newSocket = io();
 
     newSocket.on('connect', () => {
       setSocketStatus('connected');
@@ -217,6 +214,16 @@ const Home = () => {
     if (!currentChat) {
       const generatedTitle = input.length > 25 ? input.substring(0, 25) + '...' : input;
       currentChat = await handleCreateChat(generatedTitle);
+    } else if (messages.length === 0) {
+      // If chat is empty (e.g. created via "New Chat"), rename it to the first prompt
+      const generatedTitle = input.length > 25 ? input.substring(0, 25) + '...' : input;
+      
+      const updatedChats = chats.map(c => c._id === currentChat._id ? { ...c, title: generatedTitle } : c);
+      setChats(updatedChats);
+      localStorage.setItem(getChatsKey(), JSON.stringify(updatedChats));
+      
+      currentChat = { ...currentChat, title: generatedTitle };
+      setActiveChat(currentChat);
     }
 
     const userMsg = {
@@ -360,40 +367,16 @@ const Home = () => {
 
       {/* Right Chat Area */}
       <main className="main-chat-container">
-        {/* Top Navbar */}
-        <header className="chat-navbar">
-          <div className="navbar-left">
-            <button className="hamburger-btn" onClick={() => setSidebarOpen(true)}>
-              <Menu size={20} />
-            </button>
-            <div className="active-thread-details">
-              <h2 className="navbar-thread-title">
-                {activeChat ? activeChat.title : "New Conversation"}
-              </h2>
-              {activeChat && (
-                <span className="navbar-model-badge">Gemini 1.5 Pro</span>
-              )}
-            </div>
-          </div>
-
-          <div className="navbar-right">
-            {/* Socket Status Pill */}
-            <div className={`status-pill ${socketStatus}`} title={`Socket Server is ${socketStatus}`}>
-              <span className="status-dot"></span>
-              <span className="status-text">{socketStatus}</span>
-            </div>
-
-            {activeChat && messages.length > 0 && (
-              <button 
-                className="navbar-action-btn" 
-                onClick={handleClearChatHistory}
-                title="Clear thread history"
-              >
-                <Trash2 size={16} />
-              </button>
-            )}
-          </div>
-        </header>
+        {/* Floating Sidebar Toggle Button (when sidebar is closed) */}
+        {!sidebarOpen && (
+          <button 
+            className="floating-menu-btn" 
+            onClick={() => setSidebarOpen(true)}
+            title="Open Sidebar"
+          >
+            <Menu size={20} />
+          </button>
+        )}
 
         {/* Chat Content Panel */}
         <div className="chat-viewport">

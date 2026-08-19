@@ -1075,6 +1075,10 @@ html, body, #root {
     transform: translateX(-100%);
   }
 
+  .thread-delete-btn {
+    opacity: 1;
+  }
+
   .sidebar-container.open {
     transform: translateX(0);
   }
@@ -1101,4 +1105,29 @@ html, body, #root {
   .welcome-header h1 {
     font-size: 2rem;
   }
+}
+
+/* Floating Menu Button */
+.floating-menu-btn {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  background: #0d0d0d;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 80;
+  transition: var(--transition-smooth);
+}
+
+.floating-menu-btn:hover {
+  background: #121212;
+  color: var(--text-primary);
+  border-color: var(--accent-color);
 }
