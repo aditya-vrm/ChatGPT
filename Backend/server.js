@@ -11,6 +11,7 @@ connectDB();
 
 initSocketServer(httpserver);
 
-httpserver.listen(3000,()=>{
-    console.log('Your Server is Running in 3000');
+const PORT = process.env.PORT || 3000;
+httpserver.listen(PORT,()=>{
+    console.log(`Your Server is Running in ${PORT}`);
 })

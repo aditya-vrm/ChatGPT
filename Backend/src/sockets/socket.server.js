@@ -7,7 +7,25 @@ const messageModel = require("../models/message.model");
 const { createMemory, queryMemory } = require("../services/vector.service");
 
 function initSocketServer(httpserver) {
-  const io = new Server(httpserver, {});
+  const io = new Server(httpserver, {
+    cors: {
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        const allowedOrigins = [
+          'http://localhost:5173',
+          'http://localhost:3000',
+          'https://chatgpt-bfup.onrender.com'
+        ];
+        const isAllowed = allowedOrigins.includes(origin) || origin.endsWith('.onrender.com') || origin.endsWith('.vercel.app');
+        if (isAllowed) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+      },
+      credentials: true
+    }
+  });
 
   io.use(async (socket, next) => {
     const cookies = cookie.parse(socket.handshake.headers?.cookie || "");

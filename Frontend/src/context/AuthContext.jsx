@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 
 const AuthContext = createContext(null);
+const BACKEND_URL = import.meta.env.DEV ? '' : 'https://chatgpt-bfup.onrender.com';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
@@ -12,10 +13,11 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
+        credentials: 'include'
       });
       const data = await res.json();
       if (!res.ok) {
@@ -34,7 +36,7 @@ export const AuthProvider = ({ children }) => {
   const register = async (firstname, lastname, email, password) => {
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/register', {
+      const res = await fetch(`${BACKEND_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -42,6 +44,7 @@ export const AuthProvider = ({ children }) => {
           email,
           password
         }),
+        credentials: 'include'
       });
       const data = await res.json();
       if (!res.ok) {

@@ -6,6 +6,8 @@ import {
   Sparkles, Menu, X, Trash2, Globe, AlertCircle, RefreshCw
 } from 'lucide-react';
 
+const BACKEND_URL = import.meta.env.DEV ? '' : 'https://chatgpt-bfup.onrender.com';
+
 const Home = () => {
   const { user, logout } = useAuth();
   const [chats, setChats] = useState([]);
@@ -32,7 +34,9 @@ const Home = () => {
 
     // Connect to the socket server (port 3000)
     // withCredentials ensures cookies (JWT token) are transmitted for authentication
-    const newSocket = io();
+    const newSocket = io(BACKEND_URL || window.location.origin, {
+      withCredentials: true
+    });
 
     newSocket.on('connect', () => {
       setSocketStatus('connected');
@@ -175,10 +179,11 @@ const Home = () => {
     const finalTitle = (initialTitle && initialTitle !== 'New Chat') ? initialTitle : `Chat ${chatNumber}`;
     try {
       // 1. Post request to backend /api/chat to register the chat structure
-      const res = await fetch('/api/chat', {
+      const res = await fetch(`${BACKEND_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: finalTitle })
+        body: JSON.stringify({ title: finalTitle }),
+        credentials: 'include'
       });
       const data = await res.json();
       
@@ -290,7 +295,7 @@ const Home = () => {
         const errorMsg = {
           _id: Math.random().toString(),
           role: 'model',
-          content: "I am unable to answer right now because the backend server is offline or connection is lost. Please ensure the backend is running on port 3000.",
+          content: "I am unable to answer right now because the backend server is offline or connection is lost. Please check if your deployed server at https://chatgpt-bfup.onrender.com is running.",
           timestamp: new Date().toISOString()
         };
         const endMessages = [...updatedMessages, errorMsg];
@@ -433,7 +438,7 @@ const Home = () => {
                   <AlertCircle size={20} className="warning-icon" />
                   <div className="warning-content">
                     <h4>Server Connection Warning</h4>
-                    <p>The socket connection to `localhost:3000` is offline. Check if your backend server is running so the AI model can respond.</p>
+                    <p>The socket connection to the backend is offline. Check if your deployed server at https://chatgpt-bfup.onrender.com is running so the AI model can respond.</p>
                   </div>
                 </div>
               )}
