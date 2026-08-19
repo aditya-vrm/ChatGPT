@@ -19,6 +19,7 @@ const Home = () => {
 
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
+  const typingIntervalRef = useRef(null);
 
   // localStorage dynamic keys helpers scoped to the logged-in user
   const getChatsKey = () => `chatgpt_clone_chats_${user?.id || 'default'}`;
@@ -50,25 +51,49 @@ const Home = () => {
     // Listen for AI responses
     newSocket.on('ai-response', (payload) => {
       console.log('Received AI response:', payload);
-      
-      // Verify payload is for the current active chat
-      setIsGenerating(false);
 
       if (payload.chat) {
+        const msgId = Math.random().toString();
+        const fullContent = payload.content;
+
         const newMsg = {
-          _id: Math.random().toString(),
+          _id: msgId,
           role: 'model',
-          content: payload.content,
+          content: '',
           timestamp: new Date().toISOString()
         };
 
-        // Append to state
-        setMessages((prev) => {
-          const updated = [...prev, newMsg];
-          // Save messages in localStorage scoped to the user
-          localStorage.setItem(getMessagesKey(payload.chat), JSON.stringify(updated));
-          return updated;
-        });
+        // Append empty message to start the typewriter streaming
+        setMessages((prev) => [...prev, newMsg]);
+
+        // Clean up any running typing intervals
+        if (typingIntervalRef.current) {
+          clearInterval(typingIntervalRef.current);
+        }
+
+        const words = fullContent.split(' ');
+        let currentWordIndex = 0;
+        let typedText = '';
+
+        typingIntervalRef.current = setInterval(() => {
+          if (currentWordIndex < words.length) {
+            typedText += (currentWordIndex === 0 ? '' : ' ') + words[currentWordIndex];
+            currentWordIndex++;
+            setMessages((prev) =>
+              prev.map(m => m._id === msgId ? { ...m, content: typedText } : m)
+            );
+          } else {
+            clearInterval(typingIntervalRef.current);
+            typingIntervalRef.current = null;
+            setIsGenerating(false); // Enable input again when typing completes
+            setMessages((prev) => {
+              localStorage.setItem(getMessagesKey(payload.chat), JSON.stringify(prev));
+              return prev;
+            });
+          }
+        }, 50); // 50ms per word is highly fluid and natural
+      } else {
+        setIsGenerating(false);
       }
     });
 
@@ -76,6 +101,9 @@ const Home = () => {
 
     return () => {
       newSocket.disconnect();
+      if (typingIntervalRef.current) {
+        clearInterval(typingIntervalRef.current);
+      }
     };
   }, [user]);
 
@@ -104,6 +132,14 @@ const Home = () => {
   // Update messages when active chat changes
   useEffect(() => {
     if (!user) return;
+
+    // Clear any running typewriter animation when changing chat
+    if (typingIntervalRef.current) {
+      clearInterval(typingIntervalRef.current);
+      typingIntervalRef.current = null;
+      setIsGenerating(false);
+    }
+
     if (activeChat) {
       localStorage.setItem(getLastActiveKey(), activeChat._id);
       const savedMessages = localStorage.getItem(getMessagesKey(activeChat._id));
@@ -436,7 +472,7 @@ const Home = () => {
               ))}
 
               {/* Typing Dot generating animation */}
-              {isGenerating && (
+              {isGenerating && messages[messages.length - 1]?.role !== 'model' && (
                 <div className="message-bubble-row model-row">
                   <div className="bubble-avatar">
                     <div className="ai-bubble-avatar">
